@@ -90,9 +90,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                 {modelInfo.dimensions && (
                   <div>
                     <span className="font-medium">Dimensions:</span><br />
-                    <span className="pl-2">W: {modelInfo.dimensions.x.toFixed(2)}</span><br />
-                    <span className="pl-2">H: {modelInfo.dimensions.y.toFixed(2)}</span><br />
-                    <span className="pl-2">D: {modelInfo.dimensions.z.toFixed(2)}</span>
+                    <span className="pl-2">W: {modelInfo.originalDimensions.width.toFixed(2)}</span><br />
+                    <span className="pl-2">H: {modelInfo.originalDimensions.height.toFixed(2)}</span><br />
+                    <span className="pl-2">D: {modelInfo.originalDimensions.depth.toFixed(2)}</span>
                   </div>
                 )}
                 

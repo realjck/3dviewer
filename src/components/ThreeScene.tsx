@@ -45,7 +45,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
 
     // Configuration de la caméra
     const camera = new THREE.PerspectiveCamera(
-      75,
+      45,
       containerRef.current.clientWidth / containerRef.current.clientHeight,
       0.1,
       1000
@@ -115,11 +115,27 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
       const box = new THREE.Box3().setFromObject(modelRef.current);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const fov = cameraRef.current.fov * (Math.PI / 180);
-      const distance = maxDim / Math.tan(fov / 2);
       
-      cameraRef.current.position.set(distance, distance, distance);
+      // Calculer la distance optimale pour voir l'objet entier
+      const fov = cameraRef.current.fov * (Math.PI / 180);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const aspectRatio = cameraRef.current.aspect;
+      
+      // Ajuster la distance en fonction du ratio d'aspect
+      let distance = (maxDim / 2) / Math.tan(fov / 2);
+      if (aspectRatio < 1) {
+        // Pour les écrans en mode portrait
+        distance = Math.max(distance, (maxDim / 2) / (Math.tan(fov / 2) * aspectRatio));
+      }
+      
+      // Positionner la caméra avec un léger décalage pour une meilleure vue isométrique
+      const offset = 1.2; // Facteur pour avoir une marge autour de l'objet
+      cameraRef.current.position.set(
+        distance * offset * 0.7,  // Réduire légèrement la composante X
+        distance * offset * 0.7,  // Réduire légèrement la composante Y
+        distance * offset         // Garder la composante Z complète
+      );
+      
       cameraRef.current.lookAt(center);
       controlsRef.current.target.copy(center);
       controlsRef.current.update();
@@ -204,10 +220,28 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
         
         const box = new THREE.Box3().setFromObject(object);
         const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
         
-        object.position.x -= center.x;
-        object.position.y -= center.y;
-        object.position.z -= center.z;
+        // Sauvegarder les dimensions originales avant la mise à l'échelle
+        const originalDimensions = {
+          width: size.x,
+          height: size.y,
+          depth: size.z
+        };
+        
+        // Calculer le facteur d'échelle pour ajuster l'objet dans une boîte 1x1x1
+        const maxDimension = Math.max(size.x, size.y, size.z);
+        const scale = 10 / maxDimension;
+        object.scale.multiplyScalar(scale);
+        
+        // Recentrer l'objet après la mise à l'échelle et placer le point le plus bas au niveau du sol
+        const scaledBox = new THREE.Box3().setFromObject(object);
+        const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+        const scaledSize = scaledBox.getSize(new THREE.Vector3());
+        
+        object.position.x = -scaledCenter.x;
+        object.position.y = -scaledCenter.y + (scaledSize.y / 2); // Ajustement pour placer l'objet sur le sol
+        object.position.z = -scaledCenter.z;
         
         object.traverse((child) => {
           if (child instanceof THREE.Mesh) {
@@ -219,6 +253,8 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
         modelRef.current = object;
         
         const modelInfo = extractModelInfo(object);
+        // Ajouter les dimensions originales aux informations du modèle
+        modelInfo.originalDimensions = originalDimensions;
         onLoadComplete(modelInfo);
         
         handleReset();

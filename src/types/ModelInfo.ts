@@ -6,5 +6,10 @@ export interface ModelInfo {
     y: number;
     z: number;
   };
-  materials: string[];
+  originalDimensions: {
+    width: number;
+    height: number;
+    depth: number;
+  };
 }
+materials: string[];
