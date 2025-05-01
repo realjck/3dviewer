@@ -265,5 +265,37 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
       });
   }, [modelURL, modelFormat, wireframe]);
 
+  useEffect(() => {
+    const handleTextureLoad = (event: CustomEvent) => {
+      const { textureURL, materialName } = event.detail;
+      if (modelRef.current) {
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load(textureURL, (texture) => {
+          modelRef.current?.traverse((child) => {
+            if (child instanceof THREE.Mesh && child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(mat => {
+                  if (mat.name === materialName) {
+                    mat.map = texture;
+                    mat.needsUpdate = true;
+                  }
+                });
+              } else if (child.material.name === materialName) {
+                child.material.map = texture;
+                child.material.needsUpdate = true;
+              }
+            }
+          });
+        });
+      }
+    };
+
+    window.addEventListener('texture-load', handleTextureLoad as EventListener);
+
+    return () => {
+      window.removeEventListener('texture-load', handleTextureLoad as EventListener);
+    };
+  }, []);
+
   return <div ref={containerRef} className="w-full h-full" />;
 };

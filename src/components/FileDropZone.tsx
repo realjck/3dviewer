@@ -64,7 +64,7 @@ export const FileDropZone: React.FC<FileDropZoneProps> = ({ onModelLoad }) => {
         onChange={handleFileChange}
       />
       
-      <Upload className="h-12 w-12 mx-auto text-gray-400" />
+      <Upload className="h-8 w-8 mx-auto text-gray-400" />
       
       <p className="mt-2 text-base font-medium">
         Drag and drop or click to upload

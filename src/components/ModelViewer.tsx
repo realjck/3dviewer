@@ -61,11 +61,20 @@ export const ModelViewer: React.FC = () => {
     document.addEventListener('mouseup', stopDrag);
   };
 
+  const handleTextureLoad = (file: File, materialName: string) => {
+    const textureURL = URL.createObjectURL(file);
+    const event = new CustomEvent('texture-load', {
+      detail: { textureURL, materialName }
+    });
+    window.dispatchEvent(event);
+  };
+
   return (
     <>
       <div style={{ width: sidePanelWidth }} className="h-screen overflow-y-auto border-r border-gray-200">
         <SidePanel 
-          onModelLoad={handleModelLoad} 
+          onModelLoad={handleModelLoad}
+          onTextureLoad={handleTextureLoad}
           modelInfo={modelInfo}
           model={model}
           error={error}

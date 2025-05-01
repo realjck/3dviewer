@@ -6,6 +6,7 @@ import { FileDropZone } from './FileDropZone';
 
 interface SidePanelProps {
   onModelLoad: (file: File) => void;
+  onTextureLoad: (texture: File, materialName: string) => void;
   modelInfo: ModelInfo | null;
   model: File | null;
   error: string | null;
@@ -13,11 +14,13 @@ interface SidePanelProps {
 
 export const SidePanel: React.FC<SidePanelProps> = ({ 
   onModelLoad, 
+  onTextureLoad,
   modelInfo, 
   model, 
   error 
 }) => {
   const [dragActive, setDragActive] = useState<boolean>(false);
+  const [loadedTextures, setLoadedTextures] = useState<{[key: string]: string}>({});
   const isMobile = useMediaQuery('(max-width: 768px)');
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,6 +44,17 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     return formatMap[format.toLowerCase()] || format.toUpperCase();
   };
 
+  const handleTextureUpload = (materialName: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      onTextureLoad(file, materialName);
+      setLoadedTextures(prev => ({
+        ...prev,
+        [materialName]: file.name
+      }));
+    }
+  };
+
   return (
     <div className={`flex flex-col ${isMobile ? 'p-4' : 'h-full p-6'}`}>
       <h2 className="text-xl font-bold mb-4">3D Model Viewer</h2>
@@ -53,6 +67,53 @@ export const SidePanel: React.FC<SidePanelProps> = ({
           <p>{error}</p>
         </div>
       )}
+
+      {modelInfo && modelInfo.materials && modelInfo.materials.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-3">
+            Textures
+          </h3>
+          <div className="space-y-4">
+            {modelInfo.materials.map((material, index) => (
+              <div key={index} className="border rounded-lg p-4">
+                <p className="font-medium mb-2">{material}</p>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 ${
+                    loadedTextures[material] ? 'bg-green-50 border-green-500' : ''
+                  }`}
+                  onClick={() => document.getElementById(`texture-${index}`)?.click()}
+                >
+                  <input
+                    id={`texture-${index}`}
+                    type="file"
+                    className="hidden"
+                    accept=".png,.jpg,.jpeg"
+                    onChange={handleTextureUpload(material)}
+                  />
+                  {loadedTextures[material] ? (
+                    <>
+                      <div className="text-green-600 mb-2">✓</div>
+                      <p className="text-sm text-green-700">
+                        Texture chargée : {loadedTextures[material]}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cliquez pour changer
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500">
+                        Déposer une texture pour {material}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {model && (
         <div className="mt-6">
@@ -60,7 +121,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             Model Information
           </h3>
           
-          <div className="space-y-2">
+          <div className="space-y-2 text-sm pb-6">
             <div>
               <span className="font-medium">File:</span> {model.name}
             </div>
