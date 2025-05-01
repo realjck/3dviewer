@@ -14,7 +14,7 @@ interface SidePanelProps {
 
 export const SidePanel: React.FC<SidePanelProps> = ({ 
   onModelLoad, 
-  onTextureLoad,
+  onTextureLoad, // Gardez le nom de la prop originale pour la clarté externe
   modelInfo, 
   model, 
   error 
@@ -49,15 +49,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     return formatMap[format.toLowerCase()] || format.toUpperCase();
   };
 
-  const handleTextureUpload = (materialName: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      onTextureLoad(file, materialName);
-      setLoadedTextures(prev => ({
-        ...prev,
-        [materialName]: file.name
-      }));
-    }
+  const handleTextureSelectedForMaterial = (file: File, materialName: string) => {
+    onTextureLoad(file, materialName);
+    setLoadedTextures(prev => ({ // Met à jour l'état local pour l'UI
+      ...prev,
+      [materialName]: file.name
+    }));
   };
 
   return (
@@ -82,39 +79,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             {modelInfo.materials.map((material, index) => (
               <div key={index} className="border rounded-lg p-4">
                 <p className="font-medium mb-2">{material}</p>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 ${
-                    loadedTextures[material] ? 'bg-green-50 border-green-500' : ''
-                  }`}
-                  onClick={() => document.getElementById(`texture-${material}`)?.click()}
-                >
-                  <input
-                    id={`texture-${material}`}
-                    key={`texture-${material}-${model?.name || ''}`}
-                    type="file"
-                    className="hidden"
-                    accept=".png,.jpg,.jpeg"
-                    onChange={handleTextureUpload(material)}
-                  />
-                  {loadedTextures[material] ? (
-                    <>
-                      <div className="text-green-600 mb-2">✓</div>
-                      <p className="text-sm text-green-700">
-                        Texture chargée : {loadedTextures[material]}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Cliquez pour changer
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-500">
-                        Déposer une texture pour {material}
-                      </p>
-                    </>
-                  )}
-                </div>
+                <TextureDropZone
+                  // Passez la nouvelle fonction combinée ici
+                  onTextureLoad={handleTextureSelectedForMaterial} 
+                  materialName={material}
+                  loadedTexture={loadedTextures[material]}
+                />
               </div>
             ))}
           </div>
@@ -183,6 +153,85 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         <div className="mt-6 text-center text-gray-500 italic">
           <p>Upload a 3D model to view details</p>
         </div>
+      )}
+    </div>
+  );
+};
+
+interface TextureDropZoneProps {
+  onTextureLoad: (file: File, materialName: string) => void;
+  materialName: string;
+  loadedTexture?: string;
+}
+
+const TextureDropZone: React.FC<TextureDropZoneProps> = ({ 
+  onTextureLoad, 
+  materialName,
+  loadedTexture
+}) => {
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      // Appelle maintenant handleTextureSelectedForMaterial
+      onTextureLoad(file, materialName); 
+    }
+  }, [materialName, onTextureLoad]);
+
+  return (
+    <div
+      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 ${
+        loadedTexture ? 'bg-green-50 border-green-500' : ''
+      } ${dragActive ? 'bg-blue-50 border-blue-500' : ''}`}
+      onClick={() => document.getElementById(`texture-${materialName}`)?.click()}
+      onDragEnter={handleDrag}
+      onDragLeave={handleDrag}
+      onDragOver={handleDrag}
+      onDrop={handleDrop}
+    >
+      <input
+        id={`texture-${materialName}`}
+        type="file"
+        className="hidden"
+        accept=".png,.jpg,.jpeg"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            onTextureLoad(file, materialName); 
+          }
+        }}
+      />
+      {loadedTexture ? (
+        <>
+          <div className="text-green-600 mb-2">✓</div>
+          <p className="text-sm text-green-700">
+            Texture chargée : {loadedTexture}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Cliquez ou déposez pour changer
+          </p>
+        </>
+      ) : (
+        <>
+          <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+          <p className="text-sm text-gray-500">
+            Déposer une texture pour {materialName}
+          </p>
+        </>
       )}
     </div>
   );
