@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, File } from 'lucide-react';
 import { ModelInfo } from '../types/ModelInfo';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -23,6 +23,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   const [loadedTextures, setLoadedTextures] = useState<{[key: string]: string}>({});
   const isMobile = useMediaQuery('(max-width: 768px)');
   
+  useEffect(() => {
+    // Réinitialiser les textures quand le modèle change
+    setLoadedTextures({});
+  }, [model]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -81,10 +86,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 ${
                     loadedTextures[material] ? 'bg-green-50 border-green-500' : ''
                   }`}
-                  onClick={() => document.getElementById(`texture-${index}`)?.click()}
+                  onClick={() => document.getElementById(`texture-${material}`)?.click()}
                 >
                   <input
-                    id={`texture-${index}`}
+                    id={`texture-${material}`}
+                    key={`texture-${material}-${model?.name || ''}`}
                     type="file"
                     className="hidden"
                     accept=".png,.jpg,.jpeg"
