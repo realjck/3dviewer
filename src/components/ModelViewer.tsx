@@ -47,11 +47,14 @@ export const ModelViewer: React.FC = () => {
     const doDrag = (e: MouseEvent) => {
       const newWidth = Math.max(50, startWidth + e.pageX - startX);
       setSidePanelWidth(newWidth);
+      
+      window.dispatchEvent(new Event('resize'));
     };
 
     const stopDrag = () => {
       document.removeEventListener('mousemove', doDrag);
       document.removeEventListener('mouseup', stopDrag);
+      window.dispatchEvent(new Event('resize'));
     };
 
     document.addEventListener('mousemove', doDrag);
