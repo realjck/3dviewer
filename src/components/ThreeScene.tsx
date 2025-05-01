@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js';
 import { setupLights } from '../utils/lights';
 import { setupGrid } from '../utils/grid';
 import { loadModel } from '../utils/modelLoader';
@@ -267,27 +268,54 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
 
   useEffect(() => {
     const handleTextureLoad = (event: CustomEvent) => {
-      const { textureURL, materialName } = event.detail;
+      const { textureURL, materialName, fileName } = event.detail;
+      console.log('Texture load event received:', textureURL, materialName, fileName);
+      
       if (modelRef.current) {
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.load(textureURL, (texture) => {
-          modelRef.current?.traverse((child) => {
-            if (child instanceof THREE.Mesh && child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach(mat => {
-                  if (mat.name === materialName) {
-                    mat.map = texture;
-                    mat.needsUpdate = true;
-                  }
-                });
-              } else if (child.material.name === materialName) {
-                child.material.map = texture;
-                child.material.needsUpdate = true;
-              }
+        // Vérifier si c'est un fichier TGA en utilisant le nom de fichier original
+        const isTGA = fileName ? fileName.toLowerCase().endsWith('.tga') : textureURL.toLowerCase().endsWith('.tga');
+        
+        if (isTGA) {
+          // Utiliser TGALoader pour les fichiers Targa
+          const tgaLoader = new TGALoader();
+          tgaLoader.load(textureURL, 
+            (texture) => {
+              applyTextureToMaterial(texture, materialName);
+            },
+            undefined,
+            (error) => {
+              console.error('Error loading TGA texture:', error);
             }
+          );
+        } else {
+          // Utiliser le TextureLoader standard pour les autres formats
+          console.log('Using standard TextureLoader for', textureURL);
+          const textureLoader = new THREE.TextureLoader();
+          textureLoader.load(textureURL, (texture) => {
+            console.log('Standard texture loaded successfully');
+            applyTextureToMaterial(texture, materialName);
           });
-        });
+        }
       }
+    };
+    
+    // Fonction utilitaire pour appliquer la texture au matériau
+    const applyTextureToMaterial = (texture: THREE.Texture, materialName: string) => {
+      modelRef.current?.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(mat => {
+              if (mat.name === materialName) {
+                mat.map = texture;
+                mat.needsUpdate = true;
+              }
+            });
+          } else if (child.material.name === materialName) {
+            child.material.map = texture;
+            child.material.needsUpdate = true;
+          }
+        }
+      });
     };
 
     window.addEventListener('texture-load', handleTextureLoad as EventListener);

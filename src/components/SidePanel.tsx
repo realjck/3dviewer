@@ -50,8 +50,21 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   };
 
   const handleTextureSelectedForMaterial = (file: File, materialName: string) => {
-    onTextureLoad(file, materialName);
-    setLoadedTextures(prev => ({ // Met à jour l'état local pour l'UI
+    // Créer un objet URL pour le fichier
+    const textureURL = URL.createObjectURL(file);
+    
+    // Créer et dispatcher un événement personnalisé avec le nom du fichier
+    const event = new CustomEvent('texture-load', {
+      detail: { 
+        textureURL, 
+        materialName,
+        fileName: file.name
+      }
+    });
+    window.dispatchEvent(event);
+    
+    // Mettre à jour l'état local pour l'UI
+    setLoadedTextures(prev => ({
       ...prev,
       [materialName]: file.name
     }));
@@ -181,16 +194,16 @@ const TextureDropZone: React.FC<TextureDropZoneProps> = ({
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      // Appelle maintenant handleTextureSelectedForMaterial
-      onTextureLoad(file, materialName); 
+      onTextureLoad(file, materialName);
     }
-  }, [materialName, onTextureLoad]);
+  };
 
   return (
     <div
@@ -207,7 +220,7 @@ const TextureDropZone: React.FC<TextureDropZoneProps> = ({
         id={`texture-${materialName}`}
         type="file"
         className="hidden"
-        accept=".png,.jpg,.jpeg"
+        accept=".png,.jpg,.jpeg,.tga"
         onChange={(e) => {
           if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
