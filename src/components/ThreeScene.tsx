@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { setupLights } from '../utils/lights';
 import { setupGrid } from '../utils/grid';
 import { loadModel } from '../utils/modelLoader';
@@ -35,13 +35,15 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
   const [showAxes, setShowAxes] = useLocalStorage('showAxes', true);
   const [cameraPosition, setCameraPosition] = useLocalStorage('cameraPosition', { x: 5, y: 5, z: 5 });
 
-  useEffect(() => {
+  const initScene = () => {
     if (!containerRef.current) return;
 
+    // Initialisation de la scène
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x2A2A2A);
     sceneRef.current = scene;
 
+    // Configuration de la caméra
     const camera = new THREE.PerspectiveCamera(
       75,
       containerRef.current.clientWidth / containerRef.current.clientHeight,
@@ -51,6 +53,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
     camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
     cameraRef.current = camera;
 
+    // Configuration du renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -58,6 +61,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
+    // Configuration des contrôles
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
@@ -72,6 +76,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
     });
     controlsRef.current = controls;
 
+    // Ajout des éléments de base
     setupLights(scene);
     setupGrid(scene);
 
@@ -79,49 +84,90 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
     scene.add(axesHelper);
     axesRef.current = axesHelper;
     axesHelper.visible = showAxes;
+  };
+
+  const handleZoomIn = () => {
+    if (cameraRef.current && controlsRef.current) {
+      const target = controlsRef.current.target;
+      const position = cameraRef.current.position;
+      const direction = position.clone().sub(target).normalize();
+      const distance = position.distanceTo(target);
+      const newDistance = Math.max(0.1, distance * 0.8);
+      cameraRef.current.position.copy(target).add(direction.multiplyScalar(newDistance));
+      controlsRef.current.update();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (cameraRef.current && controlsRef.current) {
+      const target = controlsRef.current.target;
+      const position = cameraRef.current.position;
+      const direction = position.clone().sub(target).normalize();
+      const distance = position.distanceTo(target);
+      const newDistance = distance * 1.2;
+      cameraRef.current.position.copy(target).add(direction.multiplyScalar(newDistance));
+      controlsRef.current.update();
+    }
+  };
+
+  const handleReset = () => {
+    if (cameraRef.current && controlsRef.current && modelRef.current) {
+      const box = new THREE.Box3().setFromObject(modelRef.current);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = cameraRef.current.fov * (Math.PI / 180);
+      const distance = maxDim / Math.tan(fov / 2);
+      
+      cameraRef.current.position.set(distance, distance, distance);
+      cameraRef.current.lookAt(center);
+      controlsRef.current.target.copy(center);
+      controlsRef.current.update();
+    }
+  };
+
+  useEffect(() => {
+    initScene();
 
     const animate = () => {
       frameIdRef.current = requestAnimationFrame(animate);
-      
       if (controlsRef.current) {
         controlsRef.current.update();
       }
-      
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
     };
-    
     animate();
 
+    // Gestionnaires d'événements pour les contrôles de vue
+    window.addEventListener('viewer-zoom-in', handleZoomIn);
+    window.addEventListener('viewer-zoom-out', handleZoomOut);
+    window.addEventListener('viewer-reset', handleReset);
+
     const handleResize = () => {
-      if (
-        containerRef.current &&
-        rendererRef.current &&
-        cameraRef.current
-      ) {
+      if (containerRef.current && rendererRef.current && cameraRef.current) {
         const width = containerRef.current.clientWidth;
         const height = containerRef.current.clientHeight;
-        
         rendererRef.current.setSize(width, height);
         cameraRef.current.aspect = width / height;
         cameraRef.current.updateProjectionMatrix();
       }
     };
-
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('viewer-zoom-in', handleZoomIn);
+      window.removeEventListener('viewer-zoom-out', handleZoomOut);
+      window.removeEventListener('viewer-reset', handleReset);
       
       if (frameIdRef.current !== null) {
         cancelAnimationFrame(frameIdRef.current);
       }
-      
       if (rendererRef.current && containerRef.current) {
         containerRef.current.removeChild(rendererRef.current.domElement);
       }
-      
       if (controlsRef.current) {
         controlsRef.current.dispose();
       }
@@ -175,24 +221,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
         const modelInfo = extractModelInfo(object);
         onLoadComplete(modelInfo);
         
-        if (cameraRef.current && controlsRef.current) {
-          const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          const fov = cameraRef.current.fov * (Math.PI / 180);
-          const distance = maxDim / Math.tan(fov / 2);
-          
-          cameraRef.current.position.set(distance, distance, distance);
-          cameraRef.current.lookAt(center);
-          
-          controlsRef.current.target.set(0, 0, 0);
-          controlsRef.current.update();
-          
-          setCameraPosition({
-            x: cameraRef.current.position.x,
-            y: cameraRef.current.position.y,
-            z: cameraRef.current.position.z
-          });
-        }
+        handleReset();
       })
       .catch((error) => {
         console.error('Error loading model:', error);
