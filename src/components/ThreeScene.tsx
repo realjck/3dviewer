@@ -307,11 +307,15 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
             child.material.forEach(mat => {
               if (mat.name === materialName) {
                 mat.map = texture;
+                // Définir la couleur sur blanc pour ne pas influencer la texture
+                mat.color.set(0xFFFFFF);
                 mat.needsUpdate = true;
               }
             });
           } else if (child.material.name === materialName) {
             child.material.map = texture;
+            // Définir la couleur sur blanc pour ne pas influencer la texture
+            child.material.color.set(0xFFFFFF);
             child.material.needsUpdate = true;
           }
         }
