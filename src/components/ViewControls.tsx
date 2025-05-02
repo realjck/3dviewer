@@ -6,7 +6,7 @@ interface ViewControlsProps {
   onWireframeChange: (value: boolean) => void;
 }
 
-export const ViewControls: React.FC<ViewControlsProps> = ({ wireframe, onWireframeChange }) => {
+export const ViewControls: React.FC<ViewControlsProps> = () => {
   const handleZoomIn = () => {
     const event = new CustomEvent('viewer-zoom-in');
     window.dispatchEvent(event);
@@ -39,15 +39,6 @@ export const ViewControls: React.FC<ViewControlsProps> = ({ wireframe, onWirefra
             title="Zoom Out"
           >
             <ZoomOut size={20} />
-          </button>
-          <button
-            onClick={() => onWireframeChange(!wireframe)}
-            className={`p-2 rounded-md transition-colors ${
-              wireframe ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100'
-            }`}
-            title={wireframe ? "Solid View" : "Wireframe View"}
-          >
-            {wireframe ? <Square size={20} /> : <Grid size={20} />}
           </button>
           <div className="border-t border-gray-200 my-1"></div>
           <button

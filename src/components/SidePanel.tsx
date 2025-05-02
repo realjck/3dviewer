@@ -72,7 +72,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
   return (
     <div className={`flex flex-col ${isMobile ? 'p-4' : 'h-full p-6'}`}>
-      <h2 className="text-xl font-bold mb-4">3D Model Viewer</h2>
+      <div className="flex items-center mb-4">
+        <img src="/assets/images/3dviewer_logo_256px.png" alt="3D Viewer Logo" className="mr-2 w-24" />
+        <h1 className="text-4xl font-bold">3D VIEWER</h1>
+      </div>
       
       <FileDropZone onModelLoad={(file: File | null) => {
         if (file) {
@@ -168,7 +171,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
       
       {!model && !error && (
         <div className="mt-6 text-center text-gray-500 italic">
-          <p>Upload a 3D model to view details</p>
+          <p>Chargez un modèle 3D pour voir les détails</p>
         </div>
       )}
     </div>

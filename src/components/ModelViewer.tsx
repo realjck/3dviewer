@@ -13,7 +13,7 @@ export const ModelViewer: React.FC = () => {
   const [wireframe, setWireframe] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizerRef = useRef<HTMLDivElement>(null);
-  const [sidePanelWidth, setSidePanelWidth] = useState(300);
+  const [sidePanelWidth, setSidePanelWidth] = useState(400);
 
   const handleModelLoad = (file: File) => {
     setModel(file);
@@ -45,7 +45,7 @@ export const ModelViewer: React.FC = () => {
     const startWidth = sidePanelWidth;
     
     const doDrag = (e: MouseEvent) => {
-      const newWidth = Math.max(50, startWidth + e.pageX - startX);
+      const newWidth = Math.max(280, startWidth + e.pageX - startX);
       setSidePanelWidth(newWidth);
       
       window.dispatchEvent(new Event('resize'));
