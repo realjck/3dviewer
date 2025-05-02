@@ -74,7 +74,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     <div className={`flex flex-col ${isMobile ? 'p-4' : 'h-full p-6'}`}>
       <h2 className="text-xl font-bold mb-4">3D Model Viewer</h2>
       
-      <FileDropZone onModelLoad={onModelLoad} />
+      <FileDropZone onModelLoad={(file: File | null) => {
+        if (file) {
+          onModelLoad(file);
+        }
+      }} />
       
       {error && (
         <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">

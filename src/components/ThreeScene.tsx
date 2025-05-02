@@ -33,7 +33,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
   const frameIdRef = useRef<number | null>(null);
   const axesRef = useRef<THREE.AxesHelper | null>(null);
 
-  const [showAxes, setShowAxes] = useLocalStorage('showAxes', true);
+  const [showAxes] = useLocalStorage('showAxes', true);
   const [cameraPosition, setCameraPosition] = useLocalStorage('cameraPosition', { x: 5, y: 5, z: 5 });
 
   const initScene = () => {
