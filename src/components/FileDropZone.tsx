@@ -66,7 +66,7 @@ export const FileDropZone: React.FC<FileDropZoneProps> = ({ onModelLoad }) => {
   return (
     <div
       className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-200 cursor-pointer ${ // Toujours cursor-pointer
-        uploadedFile ? 'bg-green-50 border-green-500' : // Style vert si fichier chargé
+        uploadedFile ? 'border-4 bg-green-50 border-green-500' : // Style vert si fichier chargé
         dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
       }`}
       onDragEnter={handleDrag}
