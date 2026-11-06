@@ -7,4 +7,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep three.js core in its own chunk so it stays cached across app deployments
+        manualChunks: (id) => (id.includes('node_modules/three/build/') ? 'three' : undefined),
+      },
+    },
+  },
 });

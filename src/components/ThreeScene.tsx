@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js';
 import { setupLights } from '../utils/lights';
 import { setupGrid } from '../utils/grid';
 import { loadModel } from '../utils/modelLoader';
+import { loadTexture } from '../utils/textureLoader';
 import { extractModelInfo } from '../utils/modelInfo';
 import { frameObject, loadCameraPosition, saveCameraPosition, zoomCamera } from '../utils/camera';
 import { applyTexture, disposeObject, nameUnnamedMaterials, setWireframe } from '../utils/object3d';
@@ -178,9 +178,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
       if (!model) return;
 
       const url = URL.createObjectURL(file);
-      const loader = file.name.toLowerCase().endsWith('.tga') ? new TGALoader() : new THREE.TextureLoader();
-      loader
-        .loadAsync(url)
+      loadTexture(url, file.name)
         .then((texture) => {
           if (modelRef.current !== model) {
             texture.dispose();
