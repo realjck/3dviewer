@@ -4,7 +4,7 @@
 
 # 3D Viewer
 
-A browser-based 3D model viewer built with React, TypeScript, Three.js and Tailwind CSS. Files are loaded locally in the browser and are never uploaded to a server.
+View 3D models in your browser. Your files never leave your device.
 
 ## Features
 
@@ -14,6 +14,10 @@ A browser-based 3D model viewer built with React, TypeScript, Three.js and Tailw
 - Model information: file size, vertex and face counts, original dimensions, materials
 - Orbit, zoom, wireframe and reset-view controls; models are auto-scaled and placed on a grid
 - Resizable side panel; camera position persisted in `localStorage`
+
+## Tech stack
+
+React, TypeScript, Three.js, Tailwind CSS, built with Vite. Models and textures are read locally with object URLs; nothing is uploaded.
 
 ## Getting started
 
