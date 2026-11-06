@@ -4,7 +4,7 @@
 
 # 3D Viewer
 
-View 3D models in your browser. Your files never leave your device.
+View 3D models in your browser.
 
 ## Features
 
