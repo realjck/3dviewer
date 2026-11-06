@@ -21,7 +21,7 @@ React, TypeScript, Three.js, Tailwind CSS, built with Vite. Models and textures 
 
 ## Getting started
 
-Requires Node.js 18+.
+Requires Node.js 22.12+.
 
 ```bash
 npm install
@@ -38,10 +38,11 @@ Then open http://localhost:5173.
 | `npm run build`   | Type-check and build to `dist/`      |
 | `npm run preview` | Serve the production build locally   |
 | `npm run lint`    | Run ESLint on `src/`                 |
+| `npm test`        | Run the unit tests (Vitest)          |
 
 ## Deployment
 
-Every push to `master` is linted, built and deployed to GitHub Pages by `.github/workflows/deploy.yml`. The site is served at https://3dviewer.pxly.fr.
+Every push to `master` is linted, tested, built and deployed to GitHub Pages by `.github/workflows/deploy.yml`. The site is served at https://3dviewer.pxly.fr.
 
 ## Project structure
 
