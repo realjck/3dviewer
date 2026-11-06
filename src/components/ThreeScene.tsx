@@ -47,6 +47,8 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
+    // Block display avoids the inline baseline gap that would grow the container
+    renderer.domElement.style.display = 'block';
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -76,22 +78,26 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
     const handleReset = () => {
       if (modelRef.current) frameObject(camera, controls, modelRef.current);
     };
-    const handleResize = () => {
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      camera.aspect = container.clientWidth / container.clientHeight;
+    // Follow the container rather than the window: the panel resizer and the
+    // mobile/desktop layout switch change its size without a window resize
+    const resizeObserver = new ResizeObserver(() => {
+      const { clientWidth: width, clientHeight: height } = container;
+      if (width === 0 || height === 0) return;
+      renderer.setSize(width, height);
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
-    };
+    });
+    resizeObserver.observe(container);
 
     window.addEventListener('viewer-zoom-in', handleZoomIn);
     window.addEventListener('viewer-zoom-out', handleZoomOut);
     window.addEventListener('viewer-reset', handleReset);
-    window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('viewer-zoom-in', handleZoomIn);
       window.removeEventListener('viewer-zoom-out', handleZoomOut);
       window.removeEventListener('viewer-reset', handleReset);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
 
       cancelAnimationFrame(frameId);
       controls.dispose();

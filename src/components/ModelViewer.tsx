@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { SidePanel } from './SidePanel';
 import { ThreeScene } from './ThreeScene';
 import { ViewControls } from './ViewControls';
 import { ModelInfo } from '../types/ModelInfo';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export const ModelViewer: React.FC = () => {
   const [model, setModel] = useState<File | null>(null);
@@ -11,9 +12,8 @@ export const ModelViewer: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [wireframe, setWireframe] = useState<boolean>(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const resizerRef = useRef<HTMLDivElement>(null);
   const [sidePanelWidth, setSidePanelWidth] = useState(400);
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   const handleModelLoad = (file: File) => {
     setModel(file);
@@ -40,45 +40,51 @@ export const ModelViewer: React.FC = () => {
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
-    
+
     const startX = e.pageX;
     const startWidth = sidePanelWidth;
-    
+
     const doDrag = (e: MouseEvent) => {
-      const newWidth = Math.max(280, startWidth + e.pageX - startX);
-      setSidePanelWidth(newWidth);
-      
-      window.dispatchEvent(new Event('resize'));
+      // Below this width the logo and title header no longer fit
+      setSidePanelWidth(Math.max(280, startWidth + e.pageX - startX));
     };
 
     const stopDrag = () => {
       document.removeEventListener('mousemove', doDrag);
       document.removeEventListener('mouseup', stopDrag);
-      window.dispatchEvent(new Event('resize'));
     };
 
     document.addEventListener('mousemove', doDrag);
     document.addEventListener('mouseup', stopDrag);
   };
 
+  // Mobile: viewer pinned on top, panel scrolling below. Desktop: resizable side panel.
   return (
-    <>
-      <div style={{ width: sidePanelWidth }} className="h-screen overflow-y-auto border-r border-gray-200">
-        <SidePanel 
+    <div className={`flex w-full ${isMobile ? 'flex-col' : ''}`}>
+      <div
+        style={isMobile ? undefined : { width: sidePanelWidth }}
+        className={isMobile ? 'order-last' : 'h-screen overflow-y-auto border-r border-gray-200 shrink-0'}
+      >
+        <SidePanel
           onModelLoad={handleModelLoad}
           modelInfo={modelInfo}
           model={model}
           error={error}
         />
       </div>
-      
-      <div 
-        ref={resizerRef}
-        className="w-1 bg-gray-200 hover:bg-indigo-500 cursor-col-resize transition-colors"
-        onMouseDown={startResizing}
-      />
-      
-      <div ref={containerRef} className="flex-1 relative h-screen overflow-hidden">
+
+      {!isMobile && (
+        <div
+          className="w-1 bg-gray-200 hover:bg-indigo-500 cursor-col-resize transition-colors"
+          onMouseDown={startResizing}
+        />
+      )}
+
+      <div
+        className={`relative overflow-hidden ${
+          isMobile ? 'sticky top-0 z-20 h-[55svh] shrink-0' : 'flex-1 h-screen'
+        }`}
+      >
         {loading && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
             <div className="bg-white p-4 rounded-lg shadow-lg">
@@ -87,20 +93,20 @@ export const ModelViewer: React.FC = () => {
             </div>
           </div>
         )}
-        
-        <ThreeScene 
-          modelURL={modelURL} 
+
+        <ThreeScene
+          modelURL={modelURL}
           modelFormat={model?.name.split('.').pop()?.toLowerCase() || ''}
           onLoadComplete={handleModelInfo}
           onLoadError={handleLoadError}
           wireframe={wireframe}
         />
-        
-        <ViewControls 
+
+        <ViewControls
           wireframe={wireframe}
           onWireframeChange={setWireframe}
         />
       </div>
-    </>
+    </div>
   );
 };

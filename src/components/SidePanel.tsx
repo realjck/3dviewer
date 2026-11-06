@@ -19,7 +19,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   error
 }) => {
   const [loadedTextures, setLoadedTextures] = useState<{[key: string]: string}>({});
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   useEffect(() => {
     setLoadedTextures({});

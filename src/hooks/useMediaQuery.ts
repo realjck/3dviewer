@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState<boolean>(false);
+  // Read synchronously so the first render already uses the right layout
+  const [matches, setMatches] = useState<boolean>(() => window.matchMedia(query).matches);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(query);
