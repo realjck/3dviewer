@@ -5,9 +5,10 @@ const SUPPORTED_FORMATS = ['gltf', 'glb', 'obj', 'fbx', 'dae', 'stl', '3ds'];
 
 interface FileDropZoneProps {
   onModelLoad: (file: File) => void;
+  onError: (message: string) => void;
 }
 
-export const FileDropZone: React.FC<FileDropZoneProps> = ({ onModelLoad }) => {
+export const FileDropZone: React.FC<FileDropZoneProps> = ({ onModelLoad, onError }) => {
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -15,12 +16,12 @@ export const FileDropZone: React.FC<FileDropZoneProps> = ({ onModelLoad }) => {
   const handleFile = useCallback((file: File) => {
     const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!SUPPORTED_FORMATS.includes(extension)) {
-      alert(`Unsupported file format. Please upload one of the following: ${SUPPORTED_FORMATS.join(', ')}`);
+      onError(`Unsupported file format: ${file.name}. Use one of: ${SUPPORTED_FORMATS.join(', ')}.`);
       return;
     }
     setUploadedFile(file);
     onModelLoad(file);
-  }, [onModelLoad]);
+  }, [onModelLoad, onError]);
 
   const handleDrag = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

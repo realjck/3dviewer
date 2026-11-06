@@ -7,6 +7,7 @@ import { TEXTURE_LOAD_EVENT, TextureLoadDetail } from '../types/textureEvent';
 
 interface SidePanelProps {
   onModelLoad: (file: File) => void;
+  onError: (message: string) => void;
   modelInfo: ModelInfo | null;
   model: File | null;
   error: string | null;
@@ -14,6 +15,7 @@ interface SidePanelProps {
 
 export const SidePanel: React.FC<SidePanelProps> = ({
   onModelLoad,
+  onError,
   modelInfo,
   model,
   error
@@ -56,7 +58,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         <h1 className="text-4xl font-bold">3D VIEWER</h1>
       </div>
       
-      <FileDropZone onModelLoad={onModelLoad} />
+      <FileDropZone onModelLoad={onModelLoad} onError={onError} />
       
       {error && (
         <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -164,14 +166,16 @@ const TextureDropZone: React.FC<TextureDropZoneProps> = ({
   loadedTexture
 }) => {
   const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
     const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!TEXTURE_FORMATS.includes(extension)) {
-      alert(`Unsupported texture format. Please use one of the following: ${TEXTURE_FORMATS.join(', ')}`);
+      setError(`Unsupported texture format. Use one of: ${TEXTURE_FORMATS.join(', ')}.`);
       return;
     }
+    setError(null);
     onTextureLoad(file, materialName);
   };
 
@@ -223,6 +227,7 @@ const TextureDropZone: React.FC<TextureDropZoneProps> = ({
           <p className="text-sm text-gray-500">Drop a texture for {materialName}</p>
         </>
       )}
+      {error && <p role="alert" className="text-xs text-red-600 mt-2">{error}</p>}
     </div>
   );
 };

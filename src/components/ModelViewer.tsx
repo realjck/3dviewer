@@ -67,6 +67,7 @@ export const ModelViewer: React.FC = () => {
       >
         <SidePanel
           onModelLoad={handleModelLoad}
+          onError={setError}
           modelInfo={modelInfo}
           model={model}
           error={error}
