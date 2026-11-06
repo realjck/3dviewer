@@ -6,8 +6,10 @@ import { setupLights } from '../utils/lights';
 import { setupGrid } from '../utils/grid';
 import { loadModel } from '../utils/modelLoader';
 import { extractModelInfo } from '../utils/modelInfo';
+import { frameObject, loadCameraPosition, saveCameraPosition, zoomCamera } from '../utils/camera';
+import { applyTexture, disposeObject, nameUnnamedMaterials, setWireframe } from '../utils/object3d';
 import { ModelInfo } from '../types/ModelInfo';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { TEXTURE_LOAD_EVENT, TextureLoadDetail } from '../types/textureEvent';
 
 interface ThreeSceneProps {
   modelURL: string | null;
@@ -25,309 +27,177 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
   wireframe,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
-  const frameIdRef = useRef<number | null>(null);
-  const axesRef = useRef<THREE.AxesHelper | null>(null);
+  const wireframeRef = useRef(wireframe);
 
-  const [showAxes] = useLocalStorage('showAxes', true);
-  const [cameraPosition, setCameraPosition] = useLocalStorage('cameraPosition', { x: 5, y: 5, z: 5 });
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-  const initScene = () => {
-    if (!containerRef.current) return;
-
-    // Initialisation de la scène
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2A2A2A);
-    sceneRef.current = scene;
+    scene.background = new THREE.Color(0x2a2a2a);
 
-    // Configuration de la caméra
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
-    cameraRef.current = camera;
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.copy(loadCameraPosition());
 
-    // Configuration du renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
-    containerRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
+    container.appendChild(renderer.domElement);
 
-    // Configuration des contrôles
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.addEventListener('change', () => {
-      if (cameraRef.current) {
-        setCameraPosition({
-          x: cameraRef.current.position.x,
-          y: cameraRef.current.position.y,
-          z: cameraRef.current.position.z
-        });
-      }
-    });
-    controlsRef.current = controls;
+    // Persist on 'end' rather than 'change', which fires every frame while damping
+    controls.addEventListener('end', () => saveCameraPosition(camera.position));
 
-    // Ajout des éléments de base
     setupLights(scene);
     setupGrid(scene);
+    scene.add(new THREE.AxesHelper(5));
 
-    const axesHelper = new THREE.AxesHelper(5);
-    scene.add(axesHelper);
-    axesRef.current = axesHelper;
-    axesHelper.visible = showAxes;
-  };
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    controlsRef.current = controls;
 
-  const handleZoomIn = () => {
-    if (cameraRef.current && controlsRef.current) {
-      const target = controlsRef.current.target;
-      const position = cameraRef.current.position;
-      const direction = position.clone().sub(target).normalize();
-      const distance = position.distanceTo(target);
-      const newDistance = Math.max(0.1, distance * 0.8);
-      cameraRef.current.position.copy(target).add(direction.multiplyScalar(newDistance));
-      controlsRef.current.update();
-    }
-  };
-
-  const handleZoomOut = () => {
-    if (cameraRef.current && controlsRef.current) {
-      const target = controlsRef.current.target;
-      const position = cameraRef.current.position;
-      const direction = position.clone().sub(target).normalize();
-      const distance = position.distanceTo(target);
-      const newDistance = distance * 1.2;
-      cameraRef.current.position.copy(target).add(direction.multiplyScalar(newDistance));
-      controlsRef.current.update();
-    }
-  };
-
-  const handleReset = () => {
-    if (cameraRef.current && controlsRef.current && modelRef.current) {
-      const box = new THREE.Box3().setFromObject(modelRef.current);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      
-      // Calculer la distance optimale pour voir l'objet entier
-      const fov = cameraRef.current.fov * (Math.PI / 180);
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const aspectRatio = cameraRef.current.aspect;
-      
-      // Ajuster la distance en fonction du ratio d'aspect
-      let distance = (maxDim / 2) / Math.tan(fov / 2);
-      if (aspectRatio < 1) {
-        // Pour les écrans en mode portrait
-        distance = Math.max(distance, (maxDim / 2) / (Math.tan(fov / 2) * aspectRatio));
-      }
-      
-      // Positionner la caméra avec un léger décalage pour une meilleure vue isométrique
-      const offset = 1.2; // Facteur pour avoir une marge autour de l'objet
-      cameraRef.current.position.set(
-        distance * offset * 0.7,  // Réduire légèrement la composante X
-        distance * offset * 0.7,  // Réduire légèrement la composante Y
-        distance * offset         // Garder la composante Z complète
-      );
-      
-      cameraRef.current.lookAt(center);
-      controlsRef.current.target.copy(center);
-      controlsRef.current.update();
-    }
-  };
-
-  useEffect(() => {
-    initScene();
-
+    let frameId = 0;
     const animate = () => {
-      frameIdRef.current = requestAnimationFrame(animate);
-      if (controlsRef.current) {
-        controlsRef.current.update();
-      }
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }
+      frameId = requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
     };
     animate();
 
-    // Gestionnaires d'événements pour les contrôles de vue
+    const handleZoomIn = () => zoomCamera(camera, controls, 0.8);
+    const handleZoomOut = () => zoomCamera(camera, controls, 1.2);
+    const handleReset = () => {
+      if (modelRef.current) frameObject(camera, controls, modelRef.current);
+    };
+    const handleResize = () => {
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+    };
+
     window.addEventListener('viewer-zoom-in', handleZoomIn);
     window.addEventListener('viewer-zoom-out', handleZoomOut);
     window.addEventListener('viewer-reset', handleReset);
-
-    const handleResize = () => {
-      if (containerRef.current && rendererRef.current && cameraRef.current) {
-        const width = containerRef.current.clientWidth;
-        const height = containerRef.current.clientHeight;
-        rendererRef.current.setSize(width, height);
-        cameraRef.current.aspect = width / height;
-        cameraRef.current.updateProjectionMatrix();
-      }
-    };
     window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
       window.removeEventListener('viewer-zoom-in', handleZoomIn);
       window.removeEventListener('viewer-zoom-out', handleZoomOut);
       window.removeEventListener('viewer-reset', handleReset);
-      
-      if (frameIdRef.current !== null) {
-        cancelAnimationFrame(frameIdRef.current);
-      }
-      if (rendererRef.current && containerRef.current) {
-        containerRef.current.removeChild(rendererRef.current.domElement);
-      }
-      if (controlsRef.current) {
-        controlsRef.current.dispose();
-      }
+      window.removeEventListener('resize', handleResize);
+
+      cancelAnimationFrame(frameId);
+      controls.dispose();
+      disposeObject(scene);
+      renderer.dispose();
+      container.removeChild(renderer.domElement);
+
+      sceneRef.current = null;
+      cameraRef.current = null;
+      controlsRef.current = null;
+      modelRef.current = null;
     };
   }, []);
 
   useEffect(() => {
-    if (axesRef.current) {
-      axesRef.current.visible = showAxes;
-    }
-  }, [showAxes]);
-
-  useEffect(() => {
+    wireframeRef.current = wireframe;
     if (modelRef.current) {
-      modelRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.material.wireframe = wireframe;
-        }
-      });
+      setWireframe(modelRef.current, wireframe);
     }
   }, [wireframe]);
 
   useEffect(() => {
-    if (!modelURL || !sceneRef.current) return;
+    const scene = sceneRef.current;
+    if (!modelURL || !scene) return;
 
-    if (modelRef.current && sceneRef.current) {
-      sceneRef.current.remove(modelRef.current);
+    if (modelRef.current) {
+      scene.remove(modelRef.current);
+      disposeObject(modelRef.current);
       modelRef.current = null;
     }
 
+    // Ignore the result if a newer model was requested meanwhile
+    let cancelled = false;
+
     loadModel(modelURL, modelFormat)
       .then((object) => {
-        if (!sceneRef.current) return;
-        
-        const box = new THREE.Box3().setFromObject(object);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        
-        // Sauvegarder les dimensions originales avant la mise à l'échelle
-        const originalDimensions = {
-          width: size.x,
-          height: size.y,
-          depth: size.z
-        };
-        
-        // Calculer le facteur d'échelle pour ajuster l'objet dans une boîte 1x1x1
-        const maxDimension = Math.max(size.x, size.y, size.z);
-        const scale = 10 / maxDimension;
-        object.scale.multiplyScalar(scale);
-        
-        // Recentrer l'objet après la mise à l'échelle et placer le point le plus bas au niveau du sol
+        if (cancelled || !cameraRef.current || !controlsRef.current) {
+          disposeObject(object);
+          return;
+        }
+
+        nameUnnamedMaterials(object);
+        // Extract info before scaling so dimensions are the model's original ones
+        const modelInfo = extractModelInfo(object);
+        const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+
+        // Fit the model into a 10-unit box, matching the grid size
+        const maxDimension = Math.max(size.x, size.y, size.z) || 1;
+        object.scale.multiplyScalar(10 / maxDimension);
+
+        // Center the model horizontally and rest its lowest point on the ground
         const scaledBox = new THREE.Box3().setFromObject(object);
         const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
         const scaledSize = scaledBox.getSize(new THREE.Vector3());
-        
-        object.position.x = -scaledCenter.x;
-        object.position.y = -scaledCenter.y + (scaledSize.y / 2); // Ajustement pour placer l'objet sur le sol
-        object.position.z = -scaledCenter.z;
-        
+        object.position.sub(scaledCenter);
+        object.position.y += scaledSize.y / 2;
+
+        setWireframe(object, wireframeRef.current);
         object.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.material.wireframe = wireframe;
-          }
+          if (child instanceof THREE.Mesh) child.castShadow = true;
         });
-        
-        sceneRef.current.add(object);
+
+        scene.add(object);
         modelRef.current = object;
-        
-        const modelInfo = extractModelInfo(object);
-        // Ajouter les dimensions originales aux informations du modèle
-        modelInfo.originalDimensions = originalDimensions;
+
         onLoadComplete(modelInfo);
-        
-        handleReset();
+        frameObject(cameraRef.current, controlsRef.current, object);
       })
-      .catch((error) => {
+      .catch((error: Error) => {
+        if (cancelled) return;
         console.error('Error loading model:', error);
         onLoadError(`Failed to load model: ${error.message}`);
       });
-  }, [modelURL, modelFormat, wireframe]);
-
-  useEffect(() => {
-    const handleTextureLoad = (event: CustomEvent) => {
-      const { textureURL, materialName, fileName } = event.detail;
-      console.log('Texture load event received:', textureURL, materialName, fileName);
-      
-      if (modelRef.current) {
-        // Vérifier si c'est un fichier TGA en utilisant le nom de fichier original
-        const isTGA = fileName ? fileName.toLowerCase().endsWith('.tga') : textureURL.toLowerCase().endsWith('.tga');
-        
-        if (isTGA) {
-          // Utiliser TGALoader pour les fichiers Targa
-          const tgaLoader = new TGALoader();
-          tgaLoader.load(textureURL, 
-            (texture) => {
-              applyTextureToMaterial(texture, materialName);
-            },
-            undefined,
-            (error) => {
-              console.error('Error loading TGA texture:', error);
-            }
-          );
-        } else {
-          // Utiliser le TextureLoader standard pour les autres formats
-          console.log('Using standard TextureLoader for', textureURL);
-          const textureLoader = new THREE.TextureLoader();
-          textureLoader.load(textureURL, (texture) => {
-            console.log('Standard texture loaded successfully');
-            applyTextureToMaterial(texture, materialName);
-          });
-        }
-      }
-    };
-    
-    // Fonction utilitaire pour appliquer la texture au matériau
-    const applyTextureToMaterial = (texture: THREE.Texture, materialName: string) => {
-      modelRef.current?.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach(mat => {
-              if (mat.name === materialName) {
-                mat.map = texture;
-                // Définir la couleur sur blanc pour ne pas influencer la texture
-                mat.color.set(0xFFFFFF);
-                mat.needsUpdate = true;
-              }
-            });
-          } else if (child.material.name === materialName) {
-            child.material.map = texture;
-            // Définir la couleur sur blanc pour ne pas influencer la texture
-            child.material.color.set(0xFFFFFF);
-            child.material.needsUpdate = true;
-          }
-        }
-      });
-    };
-
-    window.addEventListener('texture-load', handleTextureLoad as EventListener);
 
     return () => {
-      window.removeEventListener('texture-load', handleTextureLoad as EventListener);
+      cancelled = true;
     };
-  }, []);
+  }, [modelURL, modelFormat, onLoadComplete, onLoadError]);
+
+  useEffect(() => {
+    const handleTextureLoad = (event: Event) => {
+      const { file, materialName } = (event as CustomEvent<TextureLoadDetail>).detail;
+      const model = modelRef.current;
+      if (!model) return;
+
+      const url = URL.createObjectURL(file);
+      const loader = file.name.toLowerCase().endsWith('.tga') ? new TGALoader() : new THREE.TextureLoader();
+      loader
+        .loadAsync(url)
+        .then((texture) => {
+          if (modelRef.current !== model) {
+            texture.dispose();
+            return;
+          }
+          texture.colorSpace = THREE.SRGBColorSpace;
+          // glTF UVs use a top-left origin, unlike the other formats
+          texture.flipY = !['gltf', 'glb'].includes(modelFormat);
+          applyTexture(model, materialName, texture);
+        })
+        .catch((error) => console.error('Error loading texture:', error))
+        .finally(() => URL.revokeObjectURL(url));
+    };
+
+    window.addEventListener(TEXTURE_LOAD_EVENT, handleTextureLoad);
+    return () => window.removeEventListener(TEXTURE_LOAD_EVENT, handleTextureLoad);
+  }, [modelFormat]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 };

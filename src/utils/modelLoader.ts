@@ -6,109 +6,38 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js';
 
-export async function loadModel(
-  url: string,
-  format: string
-): Promise<THREE.Object3D> {
-  // Normalize format
-  const modelFormat = format.toLowerCase();
-
-  return new Promise((resolve, reject) => {
-    // Select appropriate loader based on file format
-    switch (modelFormat) {
-      case 'gltf':
-      case 'glb':
-        const gltfLoader = new GLTFLoader();
-        gltfLoader.load(
-          url,
-          (gltf) => {
-            resolve(gltf.scene);
-          },
-          undefined,
-          (error) => {
-            reject(new Error(`Error loading GLTF/GLB model: ${error.message}`));
-          }
-        );
-        break;
-
-      case 'obj':
-        const objLoader = new OBJLoader();
-        objLoader.load(
-          url,
-          (obj) => {
-            resolve(obj);
-          },
-          undefined,
-          (error) => {
-            reject(new Error(`Error loading OBJ model: ${error.message}`));
-          }
-        );
-        break;
-
-      case 'fbx':
-        const fbxLoader = new FBXLoader();
-        fbxLoader.load(
-          url,
-          (fbx) => {
-            resolve(fbx);
-          },
-          undefined,
-          (error) => {
-            reject(new Error(`Error loading FBX model: ${error.message}`));
-          }
-        );
-        break;
-
-      case 'dae':
-        const colladaLoader = new ColladaLoader();
-        colladaLoader.load(
-          url,
-          (collada) => {
-            resolve(collada.scene);
-          },
-          undefined,
-          (error) => {
-            reject(new Error(`Error loading Collada model: ${error.message}`));
-          }
-        );
-        break;
-
-      case 'stl':
-        const stlLoader = new STLLoader();
-        stlLoader.load(
-          url,
-          (geometry) => {
-            const material = new THREE.MeshStandardMaterial({
-              color: 0x7777ff,
-              metalness: 0.3,
-              roughness: 0.6,
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            resolve(mesh);
-          },
-          undefined,
-          (error) => {
-            reject(new Error(`Error loading STL model: ${error.message}`));
-          }
-        );
-        break;
-
-      case '3ds':
-        const tdsLoader = new TDSLoader();
-        tdsLoader.load(
-          url,
-          (object) => {
-            resolve(object);
-          },
-          undefined,
-          (error) => {
-            reject(new Error(`Error loading 3DS model: ${error.message}`));
-          }
-        );
-        break;
-
-      default:
-        reject(new Error(`Unsupported format: ${format}`));
+async function loadByFormat(url: string, format: string): Promise<THREE.Object3D> {
+  switch (format) {
+    case 'gltf':
+    case 'glb':
+      return (await new GLTFLoader().loadAsync(url)).scene;
+    case 'obj':
+      return new OBJLoader().loadAsync(url);
+    case 'fbx':
+      return new FBXLoader().loadAsync(url);
+    case 'dae':
+      return (await new ColladaLoader().loadAsync(url)).scene;
+    case 'stl': {
+      // STL has no material data, so give it a default one
+      const geometry = await new STLLoader().loadAsync(url);
+      const material = new THREE.MeshStandardMaterial({ color: 0x7777ff, metalness: 0.3, roughness: 0.6 });
+      return new THREE.Mesh(geometry, material);
     }
-  });
+    case '3ds':
+      return new TDSLoader().loadAsync(url);
+    default:
+      throw new Error(`Unsupported format: ${format}`);
+  }
+}
+
+/** Loads a model from a URL using the loader matching its file extension. */
+export async function loadModel(url: string, format: string): Promise<THREE.Object3D> {
+  const modelFormat = format.toLowerCase();
+  try {
+    return await loadByFormat(url, modelFormat);
+  } catch (error) {
+    // Loaders may reject with a ProgressEvent rather than an Error
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Error loading ${modelFormat.toUpperCase()} model: ${message}`);
+  }
 }

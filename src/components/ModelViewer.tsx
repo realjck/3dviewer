@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { SidePanel } from './SidePanel';
 import { ThreeScene } from './ThreeScene';
 import { ViewControls } from './ViewControls';
@@ -28,15 +28,15 @@ export const ModelViewer: React.FC = () => {
     setModelURL(url);
   };
 
-  const handleModelInfo = (info: ModelInfo) => {
+  const handleModelInfo = useCallback((info: ModelInfo) => {
     setModelInfo(info);
     setLoading(false);
-  };
+  }, []);
 
-  const handleLoadError = (errorMessage: string) => {
+  const handleLoadError = useCallback((errorMessage: string) => {
     setError(errorMessage);
     setLoading(false);
-  };
+  }, []);
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -61,20 +61,11 @@ export const ModelViewer: React.FC = () => {
     document.addEventListener('mouseup', stopDrag);
   };
 
-  const handleTextureLoad = (file: File, materialName: string) => {
-    const textureURL = URL.createObjectURL(file);
-    const event = new CustomEvent('texture-load', {
-      detail: { textureURL, materialName }
-    });
-    window.dispatchEvent(event);
-  };
-
   return (
     <>
       <div style={{ width: sidePanelWidth }} className="h-screen overflow-y-auto border-r border-gray-200">
         <SidePanel 
           onModelLoad={handleModelLoad}
-          onTextureLoad={handleTextureLoad}
           modelInfo={modelInfo}
           model={model}
           error={error}

@@ -1,39 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, File } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Upload } from 'lucide-react';
 import { ModelInfo } from '../types/ModelInfo';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { FileDropZone } from './FileDropZone';
+import { TEXTURE_LOAD_EVENT, TextureLoadDetail } from '../types/textureEvent';
 
 interface SidePanelProps {
   onModelLoad: (file: File) => void;
-  onTextureLoad: (texture: File, materialName: string) => void;
   modelInfo: ModelInfo | null;
   model: File | null;
   error: string | null;
 }
 
-export const SidePanel: React.FC<SidePanelProps> = ({ 
-  onModelLoad, 
-  onTextureLoad, // Gardez le nom de la prop originale pour la clarté externe
-  modelInfo, 
-  model, 
-  error 
+export const SidePanel: React.FC<SidePanelProps> = ({
+  onModelLoad,
+  modelInfo,
+  model,
+  error
 }) => {
-  const [dragActive, setDragActive] = useState<boolean>(false);
   const [loadedTextures, setLoadedTextures] = useState<{[key: string]: string}>({});
   const isMobile = useMediaQuery('(max-width: 768px)');
-  
+
   useEffect(() => {
-    // Réinitialiser les textures quand le modèle change
     setLoadedTextures({});
   }, [model]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      onModelLoad(file);
-    }
-  };
 
   const getFormatLabel = (format: string): string => {
     const formatMap: { [key: string]: string } = {
@@ -50,20 +40,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   };
 
   const handleTextureSelectedForMaterial = (file: File, materialName: string) => {
-    // Créer un objet URL pour le fichier
-    const textureURL = URL.createObjectURL(file);
-    
-    // Créer et dispatcher un événement personnalisé avec le nom du fichier
-    const event = new CustomEvent('texture-load', {
-      detail: { 
-        textureURL, 
-        materialName,
-        fileName: file.name
-      }
-    });
-    window.dispatchEvent(event);
-    
-    // Mettre à jour l'état local pour l'UI
+    window.dispatchEvent(
+      new CustomEvent<TextureLoadDetail>(TEXTURE_LOAD_EVENT, { detail: { file, materialName } })
+    );
     setLoadedTextures(prev => ({
       ...prev,
       [materialName]: file.name
@@ -77,11 +56,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
         <h1 className="text-4xl font-bold">3D VIEWER</h1>
       </div>
       
-      <FileDropZone onModelLoad={(file: File | null) => {
-        if (file) {
-          onModelLoad(file);
-        }
-      }} />
+      <FileDropZone onModelLoad={onModelLoad} />
       
       {error && (
         <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -96,12 +71,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             Textures
           </h3>
           <div className="space-y-4">
-            {modelInfo.materials.map((material, index) => (
-              <div key={index} className="border rounded-lg p-4">
+            {modelInfo.materials.map((material) => (
+              <div key={material} className="border rounded-lg p-4">
                 <p className="font-medium mb-2">{material}</p>
                 <TextureDropZone
-                  // Passez la nouvelle fonction combinée ici
-                  onTextureLoad={handleTextureSelectedForMaterial} 
+                  onTextureLoad={handleTextureSelectedForMaterial}
                   materialName={material}
                   loadedTexture={loadedTextures[material]}
                 />
@@ -144,21 +118,19 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                   <span className="font-medium">Faces:</span> {modelInfo.faces.toLocaleString()}
                 </div>
                 
-                {modelInfo.dimensions && (
-                  <div>
-                    <span className="font-medium">Dimensions:</span><br />
-                    <span className="pl-2">W: {modelInfo.originalDimensions.width.toFixed(2)}</span><br />
-                    <span className="pl-2">H: {modelInfo.originalDimensions.height.toFixed(2)}</span><br />
-                    <span className="pl-2">D: {modelInfo.originalDimensions.depth.toFixed(2)}</span>
-                  </div>
-                )}
+                <div>
+                  <span className="font-medium">Dimensions:</span><br />
+                  <span className="pl-2">W: {modelInfo.dimensions.x.toFixed(2)}</span><br />
+                  <span className="pl-2">H: {modelInfo.dimensions.y.toFixed(2)}</span><br />
+                  <span className="pl-2">D: {modelInfo.dimensions.z.toFixed(2)}</span>
+                </div>
                 
                 {modelInfo.materials && modelInfo.materials.length > 0 && (
                   <div>
                     <span className="font-medium">Materials:</span> {modelInfo.materials.length}
                     <ul className="pl-2 mt-1">
-                      {modelInfo.materials.map((material, index) => (
-                        <li key={index} className="text-sm">• {material}</li>
+                      {modelInfo.materials.map((material) => (
+                        <li key={material} className="text-sm">• {material}</li>
                       ))}
                     </ul>
                   </div>
@@ -171,12 +143,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({
       
       {!model && !error && (
         <div className="mt-6 text-center text-gray-500 italic">
-          <p>Chargez un modèle 3D pour voir les détails</p>
+          <p>Load a 3D model to see its details</p>
         </div>
       )}
     </div>
   );
 };
+
+const TEXTURE_FORMATS = ['png', 'jpg', 'jpeg', 'tga'];
 
 interface TextureDropZoneProps {
   onTextureLoad: (file: File, materialName: string) => void;
@@ -184,32 +158,35 @@ interface TextureDropZoneProps {
   loadedTexture?: string;
 }
 
-const TextureDropZone: React.FC<TextureDropZoneProps> = ({ 
-  onTextureLoad, 
+const TextureDropZone: React.FC<TextureDropZoneProps> = ({
+  onTextureLoad,
   materialName,
   loadedTexture
 }) => {
   const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!TEXTURE_FORMATS.includes(extension)) {
+      alert(`Unsupported texture format. Please use one of the following: ${TEXTURE_FORMATS.join(', ')}`);
+      return;
+    }
+    onTextureLoad(file, materialName);
+  };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
+    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
   }, []);
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      onTextureLoad(file, materialName);
-    }
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
   };
 
   return (
@@ -217,40 +194,33 @@ const TextureDropZone: React.FC<TextureDropZoneProps> = ({
       className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 ${
         loadedTexture ? 'bg-green-50 border-green-500' : ''
       } ${dragActive ? 'bg-blue-50 border-blue-500' : ''}`}
-      onClick={() => document.getElementById(`texture-${materialName}`)?.click()}
+      onClick={() => inputRef.current?.click()}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
       onDrop={handleDrop}
     >
       <input
-        id={`texture-${materialName}`}
+        ref={inputRef}
         type="file"
         className="hidden"
-        accept=".png,.jpg,.jpeg,.tga"
+        accept={TEXTURE_FORMATS.map((format) => `.${format}`).join(',')}
         onChange={(e) => {
-          if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            onTextureLoad(file, materialName); 
-          }
+          const file = e.target.files?.[0];
+          if (file) handleFile(file);
+          e.target.value = '';
         }}
       />
       {loadedTexture ? (
         <>
           <div className="text-green-600 mb-2">✓</div>
-          <p className="text-sm text-green-700">
-            Texture chargée : {loadedTexture}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Cliquez ou déposez pour changer
-          </p>
+          <p className="text-sm text-green-700 break-all">Texture loaded: {loadedTexture}</p>
+          <p className="text-xs text-gray-500 mt-1">Click or drop to replace</p>
         </>
       ) : (
         <>
           <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-          <p className="text-sm text-gray-500">
-            Déposer une texture pour {materialName}
-          </p>
+          <p className="text-sm text-gray-500">Drop a texture for {materialName}</p>
         </>
       )}
     </div>
