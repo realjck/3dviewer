@@ -169,7 +169,7 @@ export const ThreeScene: React.FC<ThreeSceneProps> = ({
       .catch((error: Error) => {
         if (cancelled) return;
         console.error('Error loading model:', error);
-        onLoadError(`Failed to load model: ${error.message}`);
+        onLoadError(error.message);
       });
 
     return () => {

@@ -1,13 +1,44 @@
 import * as THREE from 'three';
 
+interface GltfJson {
+  buffers?: { uri?: string }[];
+  images?: { uri?: string }[];
+}
+
+/**
+ * A single .gltf file cannot resolve its relative .bin or image files from a blob
+ * URL, so detect them upfront and explain instead of failing on a missing buffer.
+ */
+async function assertSelfContainedGltf(url: string): Promise<void> {
+  let gltf: GltfJson;
+  try {
+    gltf = await (await fetch(url)).json();
+  } catch {
+    return; // Not valid JSON: let GLTFLoader report the problem
+  }
+  const external = [...(gltf.buffers ?? []), ...(gltf.images ?? [])]
+    .map((resource) => resource.uri)
+    .filter((uri): uri is string => !!uri && !uri.startsWith('data:'));
+  if (external.length > 0) {
+    throw new Error(
+      `it references external files (${external.join(', ')}). Use a .glb file or a .gltf with embedded resources.`
+    );
+  }
+}
+
+async function loadGltf(url: string): Promise<THREE.Object3D> {
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  return (await new GLTFLoader().loadAsync(url)).scene;
+}
+
 // Loaders are imported on demand so each format's code is only downloaded when used
 async function loadByFormat(url: string, format: string): Promise<THREE.Object3D> {
   switch (format) {
     case 'gltf':
-    case 'glb': {
-      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-      return (await new GLTFLoader().loadAsync(url)).scene;
-    }
+      await assertSelfContainedGltf(url);
+      return loadGltf(url);
+    case 'glb':
+      return loadGltf(url);
     case 'obj': {
       const { OBJLoader } = await import('three/examples/jsm/loaders/OBJLoader.js');
       return new OBJLoader().loadAsync(url);
@@ -44,6 +75,6 @@ export async function loadModel(url: string, format: string): Promise<THREE.Obje
   } catch (error) {
     // Loaders may reject with a ProgressEvent rather than an Error
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Error loading ${modelFormat.toUpperCase()} model: ${message}`);
+    throw new Error(`Could not load this ${modelFormat.toUpperCase()} file: ${message}`);
   }
 }
