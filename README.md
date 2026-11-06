@@ -35,6 +35,10 @@ Then open http://localhost:5173.
 | `npm run preview` | Serve the production build locally   |
 | `npm run lint`    | Run ESLint on `src/`                 |
 
+## Deployment
+
+Every push to `master` is linted, built and deployed to GitHub Pages by `.github/workflows/deploy.yml`. The site is served at https://3dviewer.pxly.fr.
+
 ## Project structure
 
 ```
