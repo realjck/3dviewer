@@ -40,20 +40,18 @@ export function frameObject(
   controls: OrbitControls,
   object: THREE.Object3D
 ): void {
-  const box = new THREE.Box3().setFromObject(object);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
+  // A bounding sphere fits whatever the view angle, unlike the box's largest side
+  const sphere = new THREE.Box3().setFromObject(object).getBoundingSphere(new THREE.Sphere());
+  const center = sphere.center;
 
-  const halfFov = (camera.fov * Math.PI) / 360;
-  const maxDim = Math.max(size.x, size.y, size.z);
-  let distance = maxDim / 2 / Math.tan(halfFov);
-  if (camera.aspect < 1) {
-    // Portrait viewports are limited by their horizontal field of view
-    distance = Math.max(distance, maxDim / 2 / (Math.tan(halfFov) * camera.aspect));
-  }
+  // Fit within the narrower of the vertical and horizontal fields of view
+  const halfVerticalFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+  const halfHorizontalFov = Math.atan(Math.tan(halfVerticalFov) * camera.aspect);
+  const margin = 1.1;
+  const distance = (margin * sphere.radius) / Math.sin(Math.min(halfVerticalFov, halfHorizontalFov));
 
-  const margin = 1.2;
-  camera.position.set(distance * margin * 0.7, distance * margin * 0.7, distance * margin);
+  const viewDirection = new THREE.Vector3(0.7, 0.7, 1).normalize();
+  camera.position.copy(center).addScaledVector(viewDirection, distance);
   camera.lookAt(center);
   controls.target.copy(center);
   controls.update();
